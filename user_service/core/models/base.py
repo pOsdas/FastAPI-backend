@@ -7,16 +7,7 @@ from sqlalchemy.orm import (
 )
 
 from utils import camel_case_to_snake_case
-
-metadata = MetaData(
-    naming_convention={
-        "pk": "pk_%(table_name)s",
-        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-        "ix": "ix_%(table_name)s_%(column_0_name)s",
-        "uq": "uq_%(table_name)s_%(column_0_name)s",
-        "ck": "ck_%(table_name)s_%(column_0_name)s",
-    }
-)
+from ..config import settings
 
 
 class Base(DeclarativeBase):
@@ -26,7 +17,9 @@ class Base(DeclarativeBase):
     def __tablename__(cls) -> str:
         return camel_case_to_snake_case(cls.__name__)
 
-    metadata = metadata
+    metadata = MetaData(
+        naming_convention=settings.db.naming_conventions,
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
