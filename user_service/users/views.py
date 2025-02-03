@@ -1,6 +1,10 @@
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
 
-from .schemas import CreateUser
+from fastapi import APIRouter, HTTPException, status, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from user_service.core.models import db_helper
+from .schemas import CreateUser, ReadUser
 from . import crud
 
 router = APIRouter(
@@ -9,9 +13,18 @@ router = APIRouter(
 )
 
 
-@router.post("/")
-def create_user(user: CreateUser):
-    try:
-        return crud.create_user(user_in=user)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@router.post("", response_model=ReadUser)
+async def create_user(
+        session: Annotated[
+          AsyncSession,
+          Depends(db_helper.session_getter),
+        ],
+        user_create: CreateUser
+
+):
+    user = await crud.create_user(
+        session=session,
+        user_create=user_create,
+    )
+    return user
+
