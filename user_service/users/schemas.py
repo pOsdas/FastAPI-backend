@@ -9,6 +9,14 @@ class CreateUser(BaseModel):
     email: EmailStr
 
 
+class ReadUser(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+    id: int
+
+
 class UserSchema(BaseModel):
     model_config = ConfigDict(strict=True, from_attributes=True)
 
