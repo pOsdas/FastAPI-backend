@@ -13,11 +13,22 @@ router = APIRouter(
 )
 
 
+@router.get("", response_model=list[ReadUser])
+async def get_users(
+        session: Annotated[
+                    AsyncSession,
+                    Depends(db_helper.session_getter),
+                ],
+):
+    users = await crud.get_all_users(session=session)
+    return users
+
+
 @router.post("", response_model=ReadUser)
 async def create_user(
         session: Annotated[
-          AsyncSession,
-          Depends(db_helper.session_getter),
+            AsyncSession,
+            Depends(db_helper.session_getter),
         ],
         user_create: CreateUser
 
@@ -26,5 +37,6 @@ async def create_user(
         session=session,
         user_create=user_create,
     )
+    # background_tasks ...
     return user
 
