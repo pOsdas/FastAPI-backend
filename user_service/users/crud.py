@@ -4,12 +4,35 @@ read
 update
 delete
 """
+from typing import Sequence
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from user_service.core.models import User
 from .schemas import CreateUser
 
 
-def create_user(user_in: CreateUser) -> dict:
-    user = user_in.model_dump()
-    return {
-        "success": True,
-        "user": user,
-    }
+async def get_all_users(
+        session: AsyncSession
+) -> Sequence[User]:
+    stmt = select(User).order_by(User.id)
+    result = await session.scalars(stmt)
+    return result.all()
+
+
+async def get_user(
+        session: AsyncSession,
+        user_id: int
+) -> User | None:
+    return await session.get(User, user_id)
+
+
+async def create_user(
+    session: AsyncSession,
+    user_create: CreateUser,
+) -> User:
+    user = User(**user_create.model_dump())
+    session.add(user)
+    await session.commit()
+    return user
