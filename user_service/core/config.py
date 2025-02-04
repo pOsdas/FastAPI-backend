@@ -1,5 +1,8 @@
 from pydantic import BaseModel, PostgresDsn
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict,
+)
 
 
 class RunModel(BaseModel):
@@ -7,8 +10,14 @@ class RunModel(BaseModel):
     port: int = 8000
 
 
+class ApiV1Prefix(BaseModel):
+    prefix: str = "/v1"
+    users: str = "/users"
+
+
 class ApiPrefix(BaseModel):
-    prefix: str = "/api/users"
+    prefix: str = "/api"
+    v1: ApiV1Prefix = ApiV1Prefix()
 
 
 class DataBaseConfig(BaseModel):
