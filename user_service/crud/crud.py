@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from user_service.core.models import User
-from .schemas import CreateUser
+from user_service.core.schemas.user import CreateUser
 
 
 async def get_all_users(
