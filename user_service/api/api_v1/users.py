@@ -1,14 +1,17 @@
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import (
+    APIRouter,
+    Depends,
+    # BackgroundTasks,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from user_service.core.models import db_helper
-from .schemas import CreateUser, ReadUser
-from . import crud
+from user_service.core.schemas.user import CreateUser, ReadUser
+from user_service.crud import crud
 
 router = APIRouter(
-    prefix="/users",
     tags=["Users"],
 )
 
@@ -16,9 +19,9 @@ router = APIRouter(
 @router.get("", response_model=list[ReadUser])
 async def get_users(
         session: Annotated[
-                    AsyncSession,
-                    Depends(db_helper.session_getter),
-                ],
+            AsyncSession,
+            Depends(db_helper.session_getter),
+        ],
 ):
     users = await crud.get_all_users(session=session)
     return users
@@ -31,6 +34,7 @@ async def create_user(
             Depends(db_helper.session_getter),
         ],
         user_create: CreateUser
+        # background_tasks: ...
 
 ):
     user = await crud.create_user(
