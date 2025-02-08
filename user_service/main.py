@@ -21,7 +21,7 @@ main_app = FastAPI(
 main_app.include_router(router=users_router, prefix=settings.api.prefix)
 
 
-@main_app.get("/")
+@main_app.get("/user_service")
 def hello_index():
     return {
         "message": "Hello from User-Service"
