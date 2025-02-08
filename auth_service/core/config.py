@@ -16,7 +16,7 @@ class RunModel(BaseModel):
 
 class ApiV1Prefix(BaseModel):
     prefix: str = "/v1"
-    users: str = "/auth"
+    auth: str = "/auth"
 
 
 class ApiPrefix(BaseModel):
