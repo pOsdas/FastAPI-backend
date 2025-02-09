@@ -8,20 +8,20 @@ from core.models.db_helper import db_helper
 
 
 @asynccontextmanager
-async def lifespan(main_app: FastAPI):
+async def lifespan(users_app: FastAPI):
     # startup
     yield
     # shutdown
     await db_helper.dispose()
 
 
-main_app = FastAPI(
+users_app = FastAPI(
     lifespan=lifespan
 )
-main_app.include_router(router=users_router, prefix=settings.api.prefix)
+users_app.include_router(router=users_router, prefix=settings.api.prefix)
 
 
-@main_app.get("/user_service")
+@users_app.get("/user_service")
 def hello_index():
     return {
         "message": "Hello from User-Service"
@@ -29,4 +29,4 @@ def hello_index():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:main_app", reload=True)
+    uvicorn.run("main:users_app", reload=True)
