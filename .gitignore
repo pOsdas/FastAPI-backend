@@ -163,3 +163,4 @@ idea/
 /.idea/dataSources.local.xml
 /user_service/.env
 /auth_service/.env
+/auth_service/certs/
