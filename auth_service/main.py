@@ -29,4 +29,8 @@ def hello_index():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:auth_app", reload=True)
+    uvicorn.run(
+        "main:auth_app",
+        host=settings.run.host,
+        port=settings.run.port,
+        reload=True)
