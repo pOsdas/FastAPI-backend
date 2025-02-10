@@ -164,3 +164,4 @@ idea/
 /user_service/.env
 /auth_service/.env
 /auth_service/certs/
+.env
