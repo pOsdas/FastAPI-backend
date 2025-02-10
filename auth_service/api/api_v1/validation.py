@@ -1,11 +1,12 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from jwt import InvalidTokenError
+# from jwt import InvalidTokenError
+from jwt import exceptions
 from starlette import status
 
 from auth_service.crud.crud import users_db
 from .utils.helpers import TOKEN_TYPE_FIELD, ACCESS_TOKEN_TYPE, REFRESH_TOKEN_TYPE
-from .utils import helpers
+from auth_service.core import security
 from auth_service.core.schemas import AuthUser
 
 oauth2_scheme = OAuth2PasswordBearer(
@@ -19,10 +20,10 @@ def get_current_token_payload(
 ) -> dict:
     # token = credentials.credentials
     try:
-        payload = helpers.decode_jwt(
+        payload = security.decode_jwt(
             token=token
         )
-    except InvalidTokenError:
+    except exceptions.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token error"
