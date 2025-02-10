@@ -1,5 +1,3 @@
-# auth.py
-
 import secrets
 import uuid
 from typing import Annotated, Any
@@ -15,10 +13,15 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 security = HTTPBasic()
 
-usernames_to_password = {"demo_user": "demo_password"}  # на самом деле здесь должны быть хешированные пароли
-static_auth_token_to_username = {"static-token": "demo_user"}
-COOKIE_SESSION_ID_KEY = "session_id"
-COOKIES = {}
+# ### for test only never do like this
+usernames_to_password = {"demo_user": "demo_password"}
+static_auth_token_to_username = {
+    "90609ed991fcca984411d4b6e1ba7": "demo_user",
+}
+COOKIES: dict[str, dict[str, Any]] = {}
+COOKIE_SESSION_ID_KEY = "cookie_session_id"
+failed_attempts = {}
+# ###
 
 
 @router.get("/basic-auth/")
@@ -40,6 +43,12 @@ def get_auth_user_username(
         detail="Invalid username or password",
         headers={"WWW-Authenticate": "Basic"},
     )
+    if failed_attempts.get(credentials.username, 0) >= 3:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Too many failed attempts"
+        )
+
     correct_password = usernames_to_password.get(credentials.username)
     if correct_password is None:
         raise unauthed_exc
@@ -49,7 +58,11 @@ def get_auth_user_username(
         credentials.password.encode("utf-8"),
         correct_password.encode("utf-8",)
     ):
+        failed_attempts[credentials.username] = failed_attempts.get(credentials.username, 0) + 1
         raise unauthed_exc
+
+    if credentials.username in failed_attempts:
+        del failed_attempts[credentials.username]
 
     return credentials.username
 
@@ -104,15 +117,21 @@ def demo_auth_some_http_header(
 @router.post("/login-cookie/")
 def demo_auth_login_cookie(
         response: Response,
-        # auth_username: str = Depends(get_auth_user_username)
         username: str = Depends(get_username_by_static_auth_token)
-):
+) -> dict:
     session_id = generate_session_id()
     COOKIES[session_id] = {
         "username": username,
         "login_at": int(time()),
     }
-    response.set_cookie(COOKIE_SESSION_ID_KEY, session_id)
+    response.set_cookie(
+        key=COOKIE_SESSION_ID_KEY,
+        value=session_id,
+        httponly=True,  # javascript protection
+        secure=False,  # https (set "True" in real projects)
+        samesite="lax",  # CSRF protection
+        domain="127.0.0.1",
+    )
     return {"result": "ok"}
 
 
