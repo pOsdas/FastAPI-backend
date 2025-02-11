@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from core.config import settings
-from auth_service.api.api_v1.auth import router as auth_router
+from auth_service.api import router as auth_router
 from core.models.db_helper import db_helper
 
 
@@ -18,7 +18,14 @@ async def lifespan(auth_app: FastAPI):
 auth_app = FastAPI(
     lifespan=lifespan
 )
-auth_app.include_router(router=auth_router, prefix=settings.api.prefix)
+auth_app.include_router(router=auth_router)
+
+
+@auth_app.get("/")
+def hello_index():
+    return {
+        "message": "Hello"
+    }
 
 
 @auth_app.get("/auth_service")
