@@ -9,18 +9,18 @@ from fastapi import (
 )
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
+from auth_service.crud.crud import usernames_to_password, static_auth_token_to_username
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 security = HTTPBasic()
 
 # ### for test only never do like this
-usernames_to_password = {"demo_user": "demo_password"}
-static_auth_token_to_username = {
-    "90609ed991fcca984411d4b6e1ba7": "demo_user",
-}
+
 COOKIES: dict[str, dict[str, Any]] = {}
 COOKIE_SESSION_ID_KEY = "cookie_session_id"
 failed_attempts = {}
+
 # ###
 
 
@@ -104,8 +104,8 @@ def demo_basic_auth_username(
     }
 
 
-@router.get("/some-http-header-auth/")
-def demo_auth_some_http_header(
+@router.get("/check-token-auth/")
+def check_token_auth(
         username: str = Depends(get_username_by_static_auth_token)
 ):
     return {
