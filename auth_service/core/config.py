@@ -17,6 +17,7 @@ class RunModel(BaseModel):
 class ApiV1Prefix(BaseModel):
     prefix: str = "/v1"
     auth: str = "/auth"
+    jwt: str = "/jwt"
 
 
 class ApiPrefix(BaseModel):
