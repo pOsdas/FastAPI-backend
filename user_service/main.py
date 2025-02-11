@@ -21,6 +21,13 @@ users_app = FastAPI(
 users_app.include_router(router=users_router, prefix=settings.api.prefix)
 
 
+@users_app.get("/")
+def hello_index():
+    return {
+        "message": "Hello"
+    }
+
+
 @users_app.get("/user_service")
 def hello_index():
     return {
