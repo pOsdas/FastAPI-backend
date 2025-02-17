@@ -5,10 +5,12 @@ from auth_service.core.schemas import AuthUser
 john = AuthUser(
     username="john",
     password=hash_password("qwerty"),
+    active=True,
     email="john@example.com"
 )
 sam = AuthUser(
     username="sam",
+    active=True,
     password=hash_password("secret"),
 )
 users_db: dict[str, AuthUser] = {
