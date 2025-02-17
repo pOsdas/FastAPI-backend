@@ -11,12 +11,12 @@ api_v1_router = APIRouter(
 
 api_v1_router.include_router(
     auth_router,
-    prefix=settings.api.v1.auth,
+    # prefix=settings.api.v1.auth,
 )
 
 api_v1_router.include_router(
     jwt_router,
-    prefix=settings.api.v1.jwt,
+    # prefix=settings.api.v1.jwt,
 )
 
 
