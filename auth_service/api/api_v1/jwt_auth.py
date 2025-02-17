@@ -18,7 +18,7 @@ from .validation import (
 )
 from auth_service.crud.crud import users_db
 from auth_service.core.schemas import AuthUser
-from .utils import helpers
+from auth_service.core import security
 
 http_bearer = HTTPBearer(auto_error=False)
 
@@ -37,8 +37,8 @@ router = APIRouter(
 
 
 def validate_auth_user(
-        username: str = Form(...),
-        password: str = Form(...)
+        username: str = Form(),
+        password: str = Form()
 ):
     unauthed_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -47,7 +47,7 @@ def validate_auth_user(
     if not (user := users_db.get(username)):
         raise unauthed_exc
 
-    if not helpers.validate_password(
+    if not security.validate_password(
         password=password,
         hashed_password=user.password,
     ):
