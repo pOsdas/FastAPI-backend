@@ -38,7 +38,13 @@ class DatabaseHelper:
 
     async def session_getter(self) -> AsyncGenerator[AsyncSession, None]:
         async with self.session_factory() as session:
-            yield session
+            try:
+                yield session
+            except Exception as e:
+                print(f"Ошибка в сессии: {e}")
+                raise
+            finally:
+                print("Сессия закрывается")
 
 
 db_helper = DatabaseHelper(
