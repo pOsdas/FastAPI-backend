@@ -6,12 +6,13 @@ from time import time
 from fastapi import (
     APIRouter, Depends, HTTPException,
     status, Header, Response, Cookie,
+    Request,
 )
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from auth_service.crud.crud import usernames_to_password, static_auth_token_to_username
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["AUTH"])
 
 security = HTTPBasic()
 
@@ -112,6 +113,24 @@ def check_token_auth(
         "message": f"Hi!, {username}!",
         "username": username,
     }
+
+
+@router.get("/set_session")
+async def set_session(request: Request):
+    """
+    Тестирование cookies
+    """
+    request.session["test_key"] = "test_value"
+    return {"message": "Session set"}
+
+
+@router.get("/get_session")
+async def get_session(request: Request):
+    """
+    Тестирование cookies
+    """
+    value = request.session.get("test_key", "not found")
+    return {"session_value": value}
 
 
 @router.post("/login-cookie/")
