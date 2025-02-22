@@ -25,6 +25,8 @@ class DataBaseConfig(BaseModel):
     echo: bool = False
     echo_pool: bool = False
     max_overflow: int = 10
+    pool_pre_ping: bool = True
+    pool_recycle: int = 600
     pool_size: int = 50
 
     naming_conventions: dict[str, str] = {
