@@ -1,9 +1,11 @@
 from pydantic import BaseModel, EmailStr
+from typing import Optional
 
 
 class AuthUser(BaseModel):
+    user_id: int
     username: str
-    hashed_password: bytes
-    refresh_token: str
+    password: bytes
     email: EmailStr | None = None
-    active: bool = True
+    is_active: bool = True
+    refresh_token: Optional[str]
