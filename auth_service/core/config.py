@@ -18,6 +18,7 @@ class ApiV1Prefix(BaseModel):
     prefix: str = "/v1"
     auth: str = "/auth"
     jwt: str = "/jwt"
+    oauth2: str = "/oauth2"
 
 
 class ApiPrefix(BaseModel):
@@ -50,6 +51,11 @@ class DataBaseConfig(BaseModel):
 
 
 class Settings(BaseSettings):
+    google_client_id: str
+    google_client_secret: str
+    oauth_redirect_uri: str
+    secret_key: str
+
     model_config = SettingsConfigDict(
         env_file=(".env", ".env-template"),
         case_sensitive=False,
