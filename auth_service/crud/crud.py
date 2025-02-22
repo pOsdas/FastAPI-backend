@@ -3,15 +3,20 @@ from auth_service.core.schemas import AuthUser
 
 # ### fake users db
 john = AuthUser(
+    user_id=1,
     username="john",
     password=hash_password("qwerty"),
-    active=True,
-    email="john@example.com"
+    email="john@example.com",
+    is_active=True,
+    refresh_token="dummy_refresh_token"
 )
+
 sam = AuthUser(
+    user_id=2,
     username="sam",
-    active=True,
     password=hash_password("secret"),
+    is_active=True,
+    refresh_token="second_dummy_refresh_token"
 )
 users_db: dict[str, AuthUser] = {
     john.username: john,
