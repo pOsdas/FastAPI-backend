@@ -54,6 +54,12 @@ def hello_index():
 
 
 if __name__ == "__main__":
+    # print(f"DataBase URL: {settings.db.url}")
+    # print(
+    #     f"Database settings: "
+    #     f"{settings.db.echo}",
+    #     f"{settings.db.echo_pool}"
+    # )
     # print(f"Google CLIENT_ID: {settings.google_client_id}")
     # print(f"Google CLIENT_SECRET: {settings.google_client_secret}")
     # print(f"OAuth2 REDIRECT_URI: {settings.oauth_redirect_uri}")
