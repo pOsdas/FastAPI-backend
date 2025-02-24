@@ -1,0 +1,63 @@
+version: "3.8"
+
+services:
+  # Сервис для базы данных PostgreSQL
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    ports:
+      - "5432:5432"
+
+  # Сервис для управления PostgreSQL (по желанию)
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - backend
+    depends_on:
+      - postgres
+
+  # Сервис для user_service
+  user_service:
+    build:
+      context: ./user_service  # Путь к каталогу с Dockerfile для user_service
+    environment:
+      DATABASE_URL: postgres://user:password@postgres/mydb
+    networks:
+      - backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+
+  # Сервис для auth_service
+  auth_service:
+    build:
+      context: ./auth_service  # Путь к каталогу с Dockerfile для auth_service
+    environment:
+      DATABASE_URL: postgres://user:password@postgres/mydb
+    networks:
+      - backend
+    ports:
+      - "8001:8001"
+    depends_on:
+      - postgres
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
