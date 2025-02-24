@@ -16,6 +16,7 @@ class DatabaseHelper:
             url: str,
             echo: bool = False,
             echo_pool: bool = False,
+            pool_pre_ping: bool = True,
             max_overflow: int = 10,
             pool_size: int = 5,
     ) -> None:
@@ -23,6 +24,7 @@ class DatabaseHelper:
             url=url,
             echo=echo,
             echo_pool=echo_pool,
+            pool_pre_ping=pool_pre_ping,
             max_overflow=max_overflow,
             pool_size=pool_size,
         )
@@ -45,6 +47,7 @@ db_helper = DatabaseHelper(
     url=str(settings.db.url),
     echo=settings.db.echo,
     echo_pool=settings.db.echo_pool,
+    pool_pre_ping=settings.db.pool_pre_ping,
     pool_size=settings.db.pool_size,
     max_overflow=settings.db.max_overflow,
 )

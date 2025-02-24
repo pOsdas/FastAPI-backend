@@ -38,6 +38,7 @@ class DataBaseConfig(BaseModel):
     url: PostgresDsn
     echo: bool = False
     echo_pool: bool = False
+    pool_pre_ping = True
     max_overflow: int = 10
     pool_size: int = 50
 
