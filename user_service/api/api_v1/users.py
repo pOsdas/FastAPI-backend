@@ -6,12 +6,14 @@ from fastapi import (
     HTTPException,
     Depends,
     BackgroundTasks,
+    Body,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 
 from user_service.api.api_v1.utils.send_welcome_email import send_welcome_email
 from user_service.core.models import db_helper
-from user_service.core.schemas.user import CreateUser, ReadUser, UserSchema
+from user_service.core.schemas.user import CreateUser, ReadUser, UserSchema, UserUpdateSchema
 from user_service.crud import crud
 
 router = APIRouter(
@@ -25,6 +27,14 @@ fake_users_db = {
         "username": "john_doe",
         "email": "john@example.com",
         "is_active": True,
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
+    },
+    2: {
+        "id": 2,
+        "username": "thomas",
+        "email": "thomas@example.com",
+        "is_active": False,
         "created_at": datetime.now(),
         "updated_at": datetime.now(),
     },
@@ -67,6 +77,68 @@ async def get_user(user_id: int):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+@router.patch("/change_user/{user_id}", response_model=UserSchema)
+async def update_user(
+        user_id: int,
+        data: Annotated[
+            UserUpdateSchema,
+            Body()
+        ],
+        session: Annotated[
+            AsyncSession,
+            Depends(db_helper.session_getter),
+        ],
+):
+    user = await crud.get_user(session=session, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    updated = False
+
+    if data.new_name:
+        user.username = data.new_name
+        updated = True
+    if data.email:
+        user.email = data.email
+        updated = True
+
+    if not updated:
+        raise HTTPException(status_code=400, detail="No data provided for update")
+
+    try:
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    except SQLAlchemyError as e:
+        await session.rollback()
+        print(f"Database error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+    return user
+
+
+@router.patch("/test_change_user/{user_id}", response_model=UserSchema)
+async def test_update_user(
+        user_id: int,
+        data: UserUpdateSchema,
+):
+    """
+    Тестовая функция без подключения к базе данных
+    """
+    user = fake_users_db.get(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if data.new_name:
+        user["username"] = data.new_name
+    if data.email:
+        user["email"] = data.email
+
+    return user
+
+
 
 
 
