@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
-from typing import Annotated
+from typing import Annotated, Optional
 from annotated_types import MinLen, MaxLen
 from datetime import datetime
 
@@ -26,3 +26,8 @@ class UserSchema(BaseModel):
     is_active: bool = True
     created_at: datetime
     updated_at: datetime
+
+
+class UserUpdateSchema(BaseModel):
+    new_name: Optional[str] = None
+    email: Optional[EmailStr] = None
