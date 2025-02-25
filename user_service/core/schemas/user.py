@@ -15,6 +15,8 @@ class ReadUser(BaseModel):
     )
 
     id: int
+    username: str
+    email: EmailStr
 
 
 class UserSchema(BaseModel):
@@ -31,3 +33,4 @@ class UserSchema(BaseModel):
 class UserUpdateSchema(BaseModel):
     new_name: Optional[str] = None
     email: Optional[EmailStr] = None
+    is_active: Optional[bool] = None
