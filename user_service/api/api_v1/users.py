@@ -49,15 +49,25 @@ async def create_user(
             Depends(db_helper.session_getter),
         ],
         user_create: CreateUser,
-        background_tasks: BackgroundTasks,
+        # background_tasks: BackgroundTasks,
 
 ):
-    user = await crud.create_user(
-        session=session,
-        user_create=user_create,
+    exiting_user = await crud.get_user_by_email(
+        session,
+        user_create.email
     )
-    background_tasks.add_task(send_welcome_email, user_id=user.id)
-    return user
+    if exiting_user:
+        raise HTTPException(
+            status_code=409, detail="User with such email already exists"
+        )
+
+    else:
+        user = await crud.create_user(
+            session=session,
+            user_create=user_create,
+        )
+        # background_tasks.add_task(send_welcome_email, user_id=user.id)
+        return user
 
 
 @router.get("/get_users", response_model=list[ReadUser])
@@ -102,6 +112,9 @@ async def update_user(
         updated = True
     if data.email:
         user.email = data.email
+        updated = True
+    if data.is_active:
+        user.is_active = data.is_active
         updated = True
 
     if not updated:
