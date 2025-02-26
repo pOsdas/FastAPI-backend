@@ -136,6 +136,18 @@ def demo_auth_login_cookie(
     return {"result": "ok"}
 
 
+@router.get("/get_session_id")
+async def get_session_id(request: Request):
+    """
+    Вручную получить cookie_session_id (для тестирования в Swagger)
+    """
+    session_cookie = request.cookies.get("cookie_session_id")
+    # session_cookie = request.cookies.get("session")
+    if not session_cookie:
+        return {"error": "Сессионный cookie не найден."}
+    return {"session_id": session_cookie}
+
+
 @router.get("/check-cookie/")
 def demo_auth_check_cookie(
         user_session_data: dict = Depends(get_session_data),
