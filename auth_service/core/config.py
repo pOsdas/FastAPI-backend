@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     secret_key: str
 
     model_config = SettingsConfigDict(
-        env_file=(".env", ".env-template"),
+        env_file=(".env-template", ".env"),
         case_sensitive=False,
         env_nested_delimiter="__",
         env_prefix="AUTH_SERVICE__"
