@@ -15,31 +15,11 @@ from user_service.api.api_v1.utils.send_welcome_email import send_welcome_email
 from user_service.core.models import db_helper
 from user_service.core.schemas.user import CreateUser, ReadUser, UserSchema, UserUpdateSchema
 from user_service.crud import crud
+from .utils.fake_db import fake_users_db
 
 router = APIRouter(
     prefix="/users", tags=["Users"],
 )
-
-
-fake_users_db = {
-    1: {
-        "id": 1,
-        "username": "john_doe",
-        "email": "john@example.com",
-        "is_active": True,
-        "created_at": datetime.now(),
-        "updated_at": datetime.now(),
-    },
-    2: {
-        "id": 2,
-        "username": "thomas",
-        "email": "thomas@example.com",
-        "is_active": False,
-        "created_at": datetime.now(),
-        "updated_at": datetime.now(),
-    },
-    # Можно добавить и других пользователей
-}
 
 
 @router.post("/create_user", response_model=ReadUser)
@@ -130,29 +110,3 @@ async def update_user(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
     return user
-
-
-@router.patch("/test_change_user/{user_id}", response_model=UserSchema)
-async def test_update_user(
-        user_id: int,
-        data: UserUpdateSchema,
-):
-    """
-    Тестовая функция без подключения к базе данных
-    """
-    user = fake_users_db.get(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if data.new_name:
-        user["username"] = data.new_name
-    if data.email:
-        user["email"] = data.email
-
-    return user
-
-
-
-
-
-
