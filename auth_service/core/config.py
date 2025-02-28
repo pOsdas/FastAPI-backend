@@ -52,17 +52,18 @@ class DataBaseConfig(BaseModel):
 
 
 class Settings(BaseSettings):
-    google_client_id: str
-    google_client_secret: str
-    oauth_redirect_uri: str
-    secret_key: str
-
     model_config = SettingsConfigDict(
         env_file=(".env-template", ".env"),
         case_sensitive=False,
         env_nested_delimiter="__",
         env_prefix="AUTH_SERVICE__"
     )
+    google_client_id: str
+    google_client_secret: str
+    oauth_redirect_uri: str
+    secret_key: str
+    user_service_url: str
+
     run: RunModel = RunModel()
     api: ApiPrefix = ApiPrefix()
     db: DataBaseConfig
@@ -71,3 +72,4 @@ class Settings(BaseSettings):
 
 settings = Settings()
 # print(settings.db.url)
+# print(settings.user_service_url)
