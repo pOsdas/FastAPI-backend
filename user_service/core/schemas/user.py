@@ -25,7 +25,6 @@ class UserSchema(BaseModel):
     id: int
     username: str
     email: EmailStr | None = None
-    is_active: bool = True
     created_at: datetime
     updated_at: datetime
 
