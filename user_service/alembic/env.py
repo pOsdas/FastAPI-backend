@@ -7,16 +7,13 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-from user_service.core.config import settings
-from user_service.core.models import Base
-
-import os
 import sys
+from pathlib import Path
 
-# Определяем корневую директорию проекта (на один уровень выше папки alembic)
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+project_root = Path(__file__).resolve().parents[2]  # Путь к MicroServicesBackend/
+sys.path.append(str(project_root))
+
+from user_service.core.models import User, Base, db_helper
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -31,6 +28,8 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
+from user_service.core.models import Base
+from user_service.core.config import settings
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
