@@ -3,13 +3,20 @@ import uuid
 from typing import Annotated, Any
 from time import time
 
+import httpx
 from fastapi import (
     APIRouter, Depends, HTTPException,
     status, Header, Response, Cookie,
     Request,
 )
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from auth_service.core.models import db_helper
+from auth_service.core.config import settings
+from auth_service.core.security import verify_password
+from auth_service.core.schemas import AuthUser
 from auth_service.crud.crud import usernames_to_password, static_auth_token_to_username
 
 router = APIRouter(prefix="/auth", tags=["AUTH"])
@@ -36,7 +43,11 @@ def demo_basic_auth_credentials(
     }
 
 
-def get_auth_user_username(
+async def get_auth_user_username(
+        session: Annotated[
+                    AsyncSession,
+                    Depends(db_helper.session_getter),
+                ],
         credentials: Annotated[HTTPBasicCredentials, Depends(security)],
 ) -> str:
     unauthed_exc = HTTPException(
@@ -50,15 +61,30 @@ def get_auth_user_username(
             detail="Too many failed attempts"
         )
 
-    correct_password = usernames_to_password.get(credentials.username)
-    if correct_password is None:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{settings.USER_SERVICE_URL}/username/{credentials.username}")
+
+    if response.status_code != 200:
+        raise unauthed_exc  # Пользователь не найден
+
+    user_data = response.json()
+    user_id = user_data.get("id")
+    is_active = user_data.get("is_active")
+
+    if not user_id or not is_active:
         raise unauthed_exc
 
+    stmt = select(AuthUser.password).where(AuthUser.user_id == user_id)
+    result = await session.execute(stmt)
+    auth_user = result.scalar_one_or_none()
+
+    if not auth_user:
+        raise unauthed_exc
+
+    hashed_password = auth_user
+
     # secrets
-    if not secrets.compare_digest(
-        credentials.password.encode("utf-8"),
-        correct_password.encode("utf-8",)
-    ):
+    if not verify_password(credentials.password, hashed_password):
         failed_attempts[credentials.username] = failed_attempts.get(credentials.username, 0) + 1
         raise unauthed_exc
 
@@ -137,7 +163,7 @@ def demo_auth_login_cookie(
 
 
 @router.get("/get_session_id")
-async def get_session_id(request: Request):
+async def get_cookie_session_id(request: Request):
     """
     Вручную получить cookie_session_id (для тестирования в Swagger)
     """
