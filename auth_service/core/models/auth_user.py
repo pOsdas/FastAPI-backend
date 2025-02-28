@@ -6,10 +6,7 @@ from .base import Base
 
 class AuthUser(Base):
     user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    username: Mapped[str] = mapped_column(String(32), unique=True, index=True)
     password: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[TIMESTAMP] = mapped_column(
         TIMESTAMP,
