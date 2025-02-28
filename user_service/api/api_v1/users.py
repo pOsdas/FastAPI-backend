@@ -10,9 +10,10 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.future import select
 
 from user_service.api.api_v1.utils.send_welcome_email import send_welcome_email
-from user_service.core.models import db_helper
+from user_service.core.models import db_helper, User
 from user_service.core.schemas.user import CreateUser, ReadUser, UserSchema, UserUpdateSchema
 from user_service.crud import crud
 from .utils.fake_db import fake_users_db
@@ -66,6 +67,23 @@ async def get_user(user_id: int):
     user = fake_users_db.get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.get("/username/{username}", response_model=UserSchema)
+async def get_user_by_username(
+        username: str,
+        session: Annotated[
+            AsyncSession,
+            Depends(db_helper.session_getter),
+        ],
+):
+    result = await session.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     return user
 
 
