@@ -9,3 +9,9 @@ class AuthUser(BaseModel):
     password: bytes
     refresh_token: Optional[str] = None
     updated_at: Optional[datetime] = None
+
+
+class RegisterUserSchema(BaseModel):
+    username: str
+    password: str
+    email: EmailStr
