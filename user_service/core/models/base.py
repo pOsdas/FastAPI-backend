@@ -1,4 +1,4 @@
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, Integer
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -21,5 +21,5 @@ class Base(DeclarativeBase):
     def __tablename__(cls) -> str:
         return camel_case_to_snake_case(cls.__name__)
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
