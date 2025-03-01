@@ -128,3 +128,29 @@ async def update_user(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
     return user
+
+
+@router.delete("{user_id}")
+async def delete_user(
+        user_id: int,
+        session: Annotated[
+            AsyncSession,
+            Depends(db_helper.session_getter),
+        ],
+
+):
+    user = await crud.get_user(session=session, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    try:
+        await session.delete(user)
+        await session.commit()
+    except SQLAlchemyError as e:
+        await session.rollback()
+        print(f"Database error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error")
+
+    return user
