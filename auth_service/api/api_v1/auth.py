@@ -4,6 +4,7 @@ from typing import Annotated, Any
 from time import time
 
 import httpx
+from authlib.oauth2.rfc6749.grants import refresh_token
 from fastapi import (
     APIRouter, Depends, HTTPException,
     status, Header, Response, Cookie,
@@ -15,8 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_service.core.models import db_helper
 from auth_service.core.config import settings
-from auth_service.core.security import verify_password
-from auth_service.core.schemas import AuthUser
+from auth_service.core.security import verify_password, hash_password
+from auth_service.core.schemas import AuthUser, RegisterUserSchema
 from auth_service.crud.crud import usernames_to_password, static_auth_token_to_username
 
 router = APIRouter(prefix="/auth", tags=["AUTH"])
@@ -41,6 +42,67 @@ def demo_basic_auth_credentials(
         "username": credentials.username,
         "password": credentials.password,
     }
+
+
+@router.post("/register")
+async def register_user(
+        user_data: RegisterUserSchema,
+        session: Annotated[
+                    AsyncSession,
+                    Depends(db_helper.session_getter),
+                ],
+):
+    # Проверка на существование
+    stmt = select(AuthUser).where(AuthUser.username == user_data.username)
+    result = await session.execute(stmt)
+    exiting_user = result.scalar_one_or_none()
+    if exiting_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User with username {user_data.username} already exists"
+        )
+
+    # Запрос на создание
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{settings.USER_SERVICE_URL}/create_user",
+            json={
+                "username": user_data.username,
+                "email": user_data.email,
+            }
+        )
+
+    if response.status_code not in (200, 201):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create user profile in user_service",
+        )
+
+    user_profile = response.json()
+    user_id = user_profile.get("id")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User profile creation error: no user_id returned"
+        )
+
+    # Хешируем пароль и создаем запись в auth_service
+    hashed_pw = hash_password(user_data.password)
+    new_auth_user = AuthUser(
+        user_id=user_id,
+        password=hashed_pw,
+        is_active=True,
+        refresh_token=None,
+    )
+    session.add(new_auth_user)
+    try:
+        await session.commit()
+        await session.refresh(new_auth_user)
+    except Exception as e:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"message": "User registered successfully", "user_id": user_id}
 
 
 async def get_auth_user_username(
