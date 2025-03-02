@@ -45,6 +45,7 @@ class Settings(BaseSettings):
         env_nested_delimiter="__",
         env_prefix="USER_SERVICE__"
     )
+    auth_service_url: str
     run: RunModel = RunModel()
     api: ApiPrefix = ApiPrefix()
     db: DataBaseConfig
