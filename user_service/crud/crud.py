@@ -5,6 +5,7 @@ update
 delete
 """
 from typing import Sequence
+from fastapi import HTTPException, status
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,10 +38,37 @@ async def get_user_by_email(
 
 
 async def create_user(
-    session: AsyncSession,
-    user_create: CreateUser,
+        session: AsyncSession,
+        user_create: CreateUser,
 ) -> User:
     user = User(**user_create.model_dump())
     session.add(user)
     await session.commit()
     return user
+
+
+async def delete_user(
+        user_id: int,
+        session: AsyncSession,
+):
+    stmt = select(User).where(User.id == user_id)
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    await session.delete(user)
+    try:
+        await session.commit()
+    except Exception as e:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete user: {str(e)}"
+        )
+
+    return {"message": "User deleted successfully", "id": id}
