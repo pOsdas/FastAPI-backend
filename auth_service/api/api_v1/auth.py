@@ -18,7 +18,8 @@ from auth_service.core.models.auth_user import AuthUser as AuthUserModel
 from auth_service.core.config import settings
 from auth_service.core.security import verify_password, hash_password
 from auth_service.core.schemas import RegisterUserSchema
-from auth_service.crud.crud import user_id_to_password, static_auth_token_to_user_id
+from auth_service.core.schemas import AuthUser as AuthUserSchema
+from auth_service.crud.crud import user_id_to_password, static_auth_token_to_user_id, get_all_users
 
 router = APIRouter(prefix="/auth", tags=["AUTH"])
 
@@ -93,6 +94,17 @@ async def register_user(
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"message": "User registered successfully", "user_id": user_id}
+
+
+@router.get("/get_users", response_model=list[AuthUserSchema])
+async def get_users(
+        session: Annotated[
+            AsyncSession,
+            Depends(db_helper.session_getter),
+        ],
+):
+    users = await get_all_users(session=session)
+    return users
 
 
 async def get_auth_user_username(
