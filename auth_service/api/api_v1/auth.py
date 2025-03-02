@@ -19,7 +19,10 @@ from auth_service.core.config import settings
 from auth_service.core.security import verify_password, hash_password
 from auth_service.core.schemas import RegisterUserSchema
 from auth_service.core.schemas import AuthUser as AuthUserSchema
-from auth_service.crud.crud import user_id_to_password, static_auth_token_to_user_id, get_all_users
+from auth_service.crud.crud import (
+    user_id_to_password, static_auth_token_to_user_id,
+    get_all_users, delete_auth_user, get_auth_user
+)
 
 router = APIRouter(prefix="/auth", tags=["AUTH"])
 
@@ -261,3 +264,24 @@ def demo_auth_cookie_logout(
     return {
         "message": f"Bye, {username}",
     }
+
+
+@router.delete("/{user_id}")
+async def delete_auth_user_account(
+        user_id: int,
+        session: Annotated[
+                    AsyncSession,
+                    Depends(db_helper.session_getter),
+                ],
+):
+    # 1 Есть ли пользователь в auth_service
+    auth_user = await get_auth_user(user_id, session)
+    if not auth_user:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"User with {user_id} not found in auth_service"
+        )
+
+    await delete_auth_user(user_id, session)
+
+    return {"message": "Auth user deleted"}
