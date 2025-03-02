@@ -1,8 +1,10 @@
 from typing import Annotated
 from datetime import datetime
 
+import httpx
 from fastapi import (
     APIRouter,
+    status,
     HTTPException,
     Depends,
     BackgroundTasks,
@@ -14,6 +16,7 @@ from sqlalchemy.future import select
 
 from user_service.api.api_v1.utils.send_welcome_email import send_welcome_email
 from user_service.core.models import db_helper, User
+from user_service.core.config import settings
 from user_service.core.schemas.user import CreateUser, ReadUser, UserSchema, UserUpdateSchema
 from user_service.crud import crud
 from .utils.fake_db import fake_users_db
@@ -130,8 +133,8 @@ async def update_user(
     return user
 
 
-@router.delete("{user_id}")
-async def delete_user(
+@router.delete("/{user_id}")
+async def delete_user_service_user(
         user_id: int,
         session: Annotated[
             AsyncSession,
@@ -142,6 +145,19 @@ async def delete_user(
     user = await crud.get_user(session=session, user_id=user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    async with httpx.AsyncClient() as client:
+        response = await client.delete(f"{settings.auth_service_url}/api/v1/auth/{user.id}")
+
+    # Пользователь не найден
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username"
+        )
+
+    # Пользователь найден
+    await crud.delete_user(user.id, session)
 
     try:
         await session.delete(user)
