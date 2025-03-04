@@ -72,7 +72,6 @@ async def validate_auth_user(
     user_profile = response.json()
     user_id = user_profile.get("id")
     active_status = user_profile.get("is_active")
-    print(f"validate_auth_user: {user_id}, {active_status}")
 
     # Активный ли пользователь
     if not active_status:
@@ -102,15 +101,15 @@ async def validate_auth_user(
     return combined_data
 
 
-def get_current_active_auth_user(
-        user: AuthUserModel = Depends(get_current_auth_user),
-):
-    if user.active:
-        return user
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Inactive user"
-    )
+# def get_current_active_auth_user(
+#         user: AuthUserModel = Depends(get_current_auth_user),
+# ):
+#     if user.active:
+#         return user
+#     raise HTTPException(
+#         status_code=status.HTTP_403_FORBIDDEN,
+#         detail="Inactive user"
+#     )
 
 
 @router.post("/login/", response_model=TokenInfo)
