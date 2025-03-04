@@ -15,3 +15,8 @@ class RegisterUserSchema(BaseModel):
     username: str
     password: str
     email: EmailStr
+
+
+class CombinedUserSchema(BaseModel):
+    user_id: int
+    email: EmailStr
