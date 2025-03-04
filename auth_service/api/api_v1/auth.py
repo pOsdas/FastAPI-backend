@@ -194,6 +194,9 @@ async def delete_auth_user_account(
                     Depends(db_helper.session_getter),
                 ],
 ):
+    """
+    Используется через user_service
+    """
     # 1 Есть ли пользователь в auth_service
     auth_user = await get_auth_user(user_id, session)
     if not auth_user:
