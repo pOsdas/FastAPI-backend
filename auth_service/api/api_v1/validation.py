@@ -1,12 +1,15 @@
+from typing import Annotated
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from jwt import exceptions
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
+from sqlalchemy.future import select
 
-from auth_service.crud.crud import users_db
+from auth_service.core.models import db_helper
 from .utils.helpers import TOKEN_TYPE_FIELD, ACCESS_TOKEN_TYPE, REFRESH_TOKEN_TYPE
 from auth_service.core import security
-from auth_service.core.schemas import AuthUser
+from auth_service.core.models import AuthUser as AuthUserModel
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="api/v1/auth/jwt/login/",
@@ -43,10 +46,21 @@ def validate_token_type(
     )
 
 
-def get_user_by_token_sub(payload: dict) -> AuthUser:
-    username: str | None = payload.get("sub")
-    if user := users_db.get(username):
+async def get_user_by_token_sub(
+        payload: dict,
+        session: Annotated[
+                AsyncSession,
+                Depends(db_helper.session_getter)
+            ]
+) -> AuthUserModel:
+    user_id: int | None = payload.get("sub")
+    stmt = select(AuthUserModel).where(AuthUserModel.user_id == user_id)
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if user:
         return user
+
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Token invalid or expired"
@@ -54,11 +68,15 @@ def get_user_by_token_sub(payload: dict) -> AuthUser:
 
 
 def get_auth_user_from_token_of_type(token_type: str):
-    def get_auth_user_from_token(
+    async def get_auth_user_from_token(
+            session: Annotated[
+                AsyncSession,
+                Depends(db_helper.session_getter)
+            ],
             payload: dict = Depends(get_current_token_payload),
-    ) -> AuthUser:
+    ):
         validate_token_type(payload=payload, token_type=token_type)
-        return get_user_by_token_sub(payload)
+        return await get_user_by_token_sub(payload, session)
     return get_auth_user_from_token
 
 
