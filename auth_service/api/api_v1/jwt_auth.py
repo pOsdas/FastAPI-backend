@@ -1,11 +1,16 @@
+import httpx
 from fastapi import (
     APIRouter, Depends, Form,
     HTTPException, status
 )
+from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.security import (
     HTTPBearer
 )
 from pydantic import BaseModel
+from typing import Annotated
+
 
 from .utils.helpers import (
     create_access_token,
@@ -17,8 +22,11 @@ from .validation import (
     REFRESH_TOKEN_TYPE,
 )
 from auth_service.crud.crud import users_db
-from auth_service.core.schemas import AuthUser
+from auth_service.core.schemas import AuthUser as AuthUserSchema, RegisterUserSchema
 from auth_service.core import security
+from auth_service.core.models import db_helper
+from auth_service.core.config import settings
+from auth_service.core.models import AuthUser as AuthUserModel
 
 http_bearer = HTTPBearer(auto_error=False)
 
@@ -36,34 +44,63 @@ router = APIRouter(
 )
 
 
-def validate_auth_user(
-        username: str = Form(),
-        password: str = Form()
+async def validate_auth_user(
+        session: Annotated[
+                    AsyncSession,
+                    Depends(db_helper.session_getter)
+                ],
+        username: str = Form(...),
+        password: str = Form(...),
 ):
     unauthed_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid username or password"
     )
-    if not (user := users_db.get(username)):
+
+    # Запрос на поиск
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{settings.user_service_url}/api/v1/users/username/{username}",
+        )
+
+    if response.status_code != status.HTTP_200_OK:
         raise unauthed_exc
 
-    if not security.validate_password(
-        password=password,
-        hashed_password=user.password,
-    ):
-        raise unauthed_exc
+    user_profile = response.json()
+    user_id = user_profile.get("id")
+    active_status = user_profile.get("is_active")
 
-    if not user.active:
+    # Активный ли пользователь
+    if not active_status:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
         )
 
-    return user
+    # Проверка на наличие в auth_service
+    stmt = select(AuthUserModel).where(AuthUserModel.user_id == user_id)
+    result = await session.execute(stmt)
+    auth_user = result.scalar_one_or_none()
+    if not auth_user:
+        return unauthed_exc
+
+    if not security.validate_password(
+        password=password,
+        hashed_password=auth_user.password,
+    ):
+        raise unauthed_exc
+
+    combined_data = {
+        "username": user_profile.get("username"),
+        "email": user_profile.get("email"),
+    }
+
+    print(combined_data)
+    return combined_data
 
 
 def get_current_active_auth_user(
-        user: AuthUser = Depends(get_current_auth_user),
+        user: AuthUserModel = Depends(get_current_auth_user),
 ):
     if user.active:
         return user
@@ -75,7 +112,7 @@ def get_current_active_auth_user(
 
 @router.post("/login/", response_model=TokenInfo)
 def auth_user_issue_jwt(
-        user: AuthUser = Depends(validate_auth_user)
+        user: RegisterUserSchema = Depends(validate_auth_user)
 ):
     access_token = create_access_token(user)
     refresh_token = create_refresh_token(user)
@@ -92,7 +129,7 @@ def auth_user_issue_jwt(
     response_model_exclude_none=True,
 )
 def auth_refresh_jwt(
-        user: AuthUser = Depends(get_auth_user_from_token_of_type(REFRESH_TOKEN_TYPE))
+        user: AuthUserModel = Depends(get_auth_user_from_token_of_type(REFRESH_TOKEN_TYPE))
 ):
     access_token = create_access_token(user)
     return TokenInfo(
