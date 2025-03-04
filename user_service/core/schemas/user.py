@@ -21,6 +21,7 @@ class ReadUser(BaseModel):
 
 class UserSchema(BaseModel):
     model_config = ConfigDict(strict=True, from_attributes=True)
+    id: int
     username: str
     email: EmailStr | None = None
     is_active: bool
