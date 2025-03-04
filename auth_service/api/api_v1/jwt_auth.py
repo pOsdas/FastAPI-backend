@@ -22,7 +22,10 @@ from .validation import (
     REFRESH_TOKEN_TYPE,
 )
 from auth_service.crud.crud import users_db
-from auth_service.core.schemas import AuthUser as AuthUserSchema, RegisterUserSchema
+from auth_service.core.schemas import (
+    AuthUser as AuthUserSchema,
+    RegisterUserSchema, CombinedUserSchema
+)
 from auth_service.core import security
 from auth_service.core.models import db_helper
 from auth_service.core.config import settings
@@ -69,6 +72,7 @@ async def validate_auth_user(
     user_profile = response.json()
     user_id = user_profile.get("id")
     active_status = user_profile.get("is_active")
+    print(f"validate_auth_user: {user_id}, {active_status}")
 
     # Активный ли пользователь
     if not active_status:
@@ -90,12 +94,11 @@ async def validate_auth_user(
     ):
         raise unauthed_exc
 
-    combined_data = {
-        "username": user_profile.get("username"),
-        "email": user_profile.get("email"),
-    }
+    combined_data = CombinedUserSchema(
+        user_id=int(user_id),
+        email=user_profile.get("email"),
+    )
 
-    print(combined_data)
     return combined_data
 
 
@@ -112,7 +115,7 @@ def get_current_active_auth_user(
 
 @router.post("/login/", response_model=TokenInfo)
 def auth_user_issue_jwt(
-        user: RegisterUserSchema = Depends(validate_auth_user)
+        user: CombinedUserSchema = Depends(validate_auth_user)
 ):
     access_token = create_access_token(user)
     refresh_token = create_refresh_token(user)
@@ -129,7 +132,7 @@ def auth_user_issue_jwt(
     response_model_exclude_none=True,
 )
 def auth_refresh_jwt(
-        user: AuthUserModel = Depends(get_auth_user_from_token_of_type(REFRESH_TOKEN_TYPE))
+        user: CombinedUserSchema = Depends(get_auth_user_from_token_of_type(REFRESH_TOKEN_TYPE))
 ):
     access_token = create_access_token(user)
     return TokenInfo(

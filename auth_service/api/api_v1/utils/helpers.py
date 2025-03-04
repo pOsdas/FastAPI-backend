@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from auth_service.core import security as auth_utils
 from auth_service.core.config import settings
-from auth_service.core.schemas import AuthUser, RegisterUserSchema
+from auth_service.core.schemas import AuthUser as AuthUserSchema, CombinedUserSchema
 
 
 TOKEN_TYPE_FIELD = "type"
@@ -25,12 +25,12 @@ def create_jwt(
     )
 
 
-def create_access_token(user: RegisterUserSchema) -> str:
+def create_access_token(user: CombinedUserSchema) -> str:
     jwt_payload = {
         # subject
-        "sub": user.get("username"),
-        "username": user.get("username"),
-        "email": user.get("email"),
+        "sub": user.user_id,
+        "user_id": user.user_id,
+        "email": user.email,
     }
 
     return create_jwt(
@@ -40,10 +40,10 @@ def create_access_token(user: RegisterUserSchema) -> str:
     )
 
 
-def create_refresh_token(user: RegisterUserSchema) -> str:
+def create_refresh_token(user: CombinedUserSchema) -> str:
     jwt_payload = {
-        "sub": user.get("username"),
-        "username": user.get("username"),
+        "sub": user.user_id,
+        "user_id": user.email,
     }
     return create_jwt(
         token_type=REFRESH_TOKEN_TYPE,
