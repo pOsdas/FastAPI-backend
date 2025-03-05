@@ -17,14 +17,11 @@ from .utils.helpers import (
     create_refresh_token,
 )
 from .validation import (
-    get_current_auth_user,
     get_auth_user_from_token_of_type,
     REFRESH_TOKEN_TYPE,
 )
-from auth_service.crud.crud import users_db
 from auth_service.core.schemas import (
-    AuthUser as AuthUserSchema,
-    RegisterUserSchema, CombinedUserSchema
+    CombinedUserSchema
 )
 from auth_service.core import security
 from auth_service.core.models import db_helper
