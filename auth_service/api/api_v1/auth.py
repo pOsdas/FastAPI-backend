@@ -1,5 +1,5 @@
-from typing import Annotated, Any
-
+from typing import Annotated
+import redis.asyncio as redis
 import httpx
 from fastapi import (
     APIRouter, Depends, HTTPException,
@@ -24,11 +24,12 @@ router = APIRouter(prefix="/auth", tags=["AUTH"])
 
 security = HTTPBasic()
 
-# ### for test only never do like this
+# Подключение к Redis
+redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 
-failed_attempts = {}
-
-# ###
+# failed attempts
+MAX_ATTEMPTS = 5
+BLOCK_TIME_SECONDS = 300  # 5 минут
 
 
 @router.get("/basic-auth/")
@@ -111,21 +112,32 @@ async def get_auth_user_username(
                 ],
         credentials: Annotated[HTTPBasicCredentials, Depends(security)],
 ) -> str:
+    username = credentials.username
+
     unauthed_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid username or password",
         headers={"WWW-Authenticate": "Basic"},
     )
-    if failed_attempts.get(credentials.username, 0) >= 3:
+
+    # Проверка попыток входа через redis
+    key = f"failed_attempts:{username}"
+    attempts = await redis_client.get(key)
+    attempts = int(attempts) if attempts else 0
+
+    if attempts >= MAX_ATTEMPTS:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Too many failed attempts"
+            detail="Too many failed attempts, try again later"
         )
 
+    # Запрос пользователя из user_service
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{settings.user_service_url}/api/v1/users/username/{credentials.username}")
+        response = await client.get(f"{settings.user_service_url}/api/v1/users/username/{username}")
 
     if response.status_code != 200:
+        await redis_client.incr(key)
+        await redis_client.expire(key, BLOCK_TIME_SECONDS)
         raise unauthed_exc  # Пользователь не найден
 
     user_data = response.json()
@@ -133,6 +145,8 @@ async def get_auth_user_username(
     is_active = user_data.get("is_active")
 
     if not user_id or not is_active:
+        await redis_client.incr(key)
+        await redis_client.expire(key, BLOCK_TIME_SECONDS)
         raise unauthed_exc
 
     stmt = select(AuthUserModel.password).where(AuthUserModel.user_id == user_id)
@@ -140,19 +154,21 @@ async def get_auth_user_username(
     auth_user = result.scalar_one_or_none()
 
     if not auth_user:
+        await redis_client.incr(key)
+        await redis_client.expire(key, BLOCK_TIME_SECONDS)
         raise unauthed_exc
 
     hashed_password = auth_user
 
     # secrets
     if not verify_password(credentials.password, hashed_password):
-        failed_attempts[credentials.username] = failed_attempts.get(credentials.username, 0) + 1
+        await redis_client.incr(key)
+        await redis_client.expire(key, BLOCK_TIME_SECONDS)
         raise unauthed_exc
 
-    if credentials.username in failed_attempts:
-        del failed_attempts[credentials.username]
+    await redis_client.delete(key)
 
-    return credentials.username
+    return username
 
 
 def get_username_by_static_auth_token(
