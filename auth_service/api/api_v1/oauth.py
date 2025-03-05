@@ -1,7 +1,6 @@
 from authlib.integrations.starlette_client import OAuth
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException
 import httpx
-from starlette.responses import RedirectResponse
 
 from auth_service.core.config import settings
 
