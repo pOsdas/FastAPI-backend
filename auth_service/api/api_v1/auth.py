@@ -13,11 +13,14 @@ from auth_service.core.models import db_helper
 from auth_service.core.models.auth_user import AuthUser as AuthUserModel
 from auth_service.core.config import settings
 from auth_service.core.security import verify_password, hash_password
-from auth_service.core.schemas import RegisterUserSchema
+from auth_service.core.schemas import RegisterUserSchema, CombinedUserSchema, TokenResponseSchema
 from auth_service.core.schemas import AuthUser as AuthUserSchema
-from auth_service.crud.crud import (
-    static_auth_token_to_user_id,
+from auth_service.crud.users_crud import (
+    static_auth_token_to_user_id, update_refresh_token,
     get_all_users, delete_auth_user, get_auth_user
+)
+from auth_service.api.api_v1.utils.helpers import (
+    create_access_token, create_refresh_token
 )
 
 router = APIRouter(prefix="/auth", tags=["AUTH"])
@@ -36,6 +39,9 @@ BLOCK_TIME_SECONDS = 300  # 5 минут
 def demo_basic_auth_credentials(
         credentials: Annotated[HTTPBasicCredentials, Depends(security)],
 ):
+    """
+    Не для продакшена
+    """
     return {
         "message": "Hi!",
         "username": credentials.username,
@@ -50,14 +56,17 @@ async def register_user(
                     AsyncSession,
                     Depends(db_helper.session_getter),
                 ],
-):
+) -> TokenResponseSchema:
     # 1 Запрос на создание
+    username = user_data.username
+    email = user_data.email
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{settings.user_service_url}/api/v1/users/create_user",
             json={
-                "username": user_data.username,
-                "email": user_data.email,
+                "username": username,
+                "email": email,
             }
         )
 
@@ -69,7 +78,7 @@ async def register_user(
         )
 
     user_profile = response.json()
-    user_id = user_profile.get("id")
+    user_id = user_profile.get("user_id")
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -91,7 +100,18 @@ async def register_user(
         await session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-    return {"message": "User registered successfully", "user_id": user_id}
+    # 3 Сразу логиним пользователя
+    refresh_token = create_refresh_token(user_id, email)
+    await update_refresh_token(session, new_auth_user, refresh_token)
+    access_token = create_access_token(new_auth_user, email)
+
+    return TokenResponseSchema(
+        user_id=user_id,
+        username=username,
+        email=email,
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
 
 
 @router.get("/get_users", response_model=list[AuthUserSchema])
@@ -105,13 +125,25 @@ async def get_users(
     return users
 
 
+def get_username_by_static_auth_token(
+        static_token: str = Header(alias="x-auth-token")
+) -> str:
+    if username := static_auth_token_to_user_id.get(static_token):
+        return username
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid token"
+    )
+
+
+# Вспомогательная функция для basic_auth_username
 async def get_auth_user_username(
         session: Annotated[
                     AsyncSession,
                     Depends(db_helper.session_getter),
                 ],
         credentials: Annotated[HTTPBasicCredentials, Depends(security)],
-) -> str:
+) -> TokenResponseSchema:
     username = credentials.username
 
     unauthed_exc = HTTPException(
@@ -142,6 +174,8 @@ async def get_auth_user_username(
 
     user_data = response.json()
     user_id = user_data.get("id")
+    username = user_data.get("username")
+    user_email = user_data.get("email")
     is_active = user_data.get("is_active")
 
     if not user_id or not is_active:
@@ -149,47 +183,43 @@ async def get_auth_user_username(
         await redis_client.expire(key, BLOCK_TIME_SECONDS)
         raise unauthed_exc
 
-    stmt = select(AuthUserModel.password).where(AuthUserModel.user_id == user_id)
-    result = await session.execute(stmt)
-    auth_user = result.scalar_one_or_none()
+    # Запрос пользователя из auth_service
+    auth_user: AuthUserModel = await get_auth_user(user_id, session)
 
     if not auth_user:
         await redis_client.incr(key)
         await redis_client.expire(key, BLOCK_TIME_SECONDS)
         raise unauthed_exc
 
-    hashed_password = auth_user
-
     # secrets
-    if not verify_password(credentials.password, hashed_password):
+    if not verify_password(credentials.password, auth_user.password):
         await redis_client.incr(key)
         await redis_client.expire(key, BLOCK_TIME_SECONDS)
         raise unauthed_exc
 
     await redis_client.delete(key)
 
-    return username
+    # Создаем токены
+    refresh_token = create_refresh_token(user_id, user_email)
+    await update_refresh_token(session, auth_user, refresh_token)
 
+    access_token = create_access_token(auth_user, user_email)
 
-def get_username_by_static_auth_token(
-        static_token: str = Header(alias="x-auth-token")
-) -> str:
-    if username := static_auth_token_to_user_id.get(static_token):
-        return username
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid token"
+    return TokenResponseSchema(
+        user_id=user_id,
+        username=username,
+        email=user_email,
+        access_token=access_token,
+        refresh_token=refresh_token,
     )
 
 
-@router.get("/basic-auth-username/")
-def demo_basic_auth_username(
-        auth_username: str = Depends(get_auth_user_username)
+# Авторизируем пользователя через username\password
+@router.post("/login/")
+def basic_auth_username(
+        token_data: TokenResponseSchema = Depends(get_auth_user_username)
 ):
-    return {
-        "message": f"Hi!, {auth_username}!",
-        "username": auth_username,
-    }
+    return token_data
 
 
 @router.get("/check-token-auth/")
@@ -211,7 +241,8 @@ async def delete_auth_user_account(
                 ],
 ):
     """
-    Используется через user_service
+    Используется через user_service, \n
+    Не синхронизует данные через эту сторону
     """
     # 1 Есть ли пользователь в auth_service
     auth_user = await get_auth_user(user_id, session)
