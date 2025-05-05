@@ -20,3 +20,11 @@ class RegisterUserSchema(BaseModel):
 class CombinedUserSchema(BaseModel):
     user_id: int
     email: EmailStr
+
+
+class TokenResponseSchema(BaseModel):
+    user_id: str
+    username: str
+    email: str
+    access_token: str
+    refresh_token: str
