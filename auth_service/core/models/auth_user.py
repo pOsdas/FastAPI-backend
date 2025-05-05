@@ -15,7 +15,7 @@ class AuthUser(Base):
     )
 
     def __str__(self) -> str:
-        return f"{self.__class__.__name__}(id={self.id}, username={self.username!r})"
+        return f"{self.__class__.__name__}(id={self.user_id}, password={self.password!r})"
 
     def __repr__(self) -> str:
         return str(self)
