@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_service.core.models import AuthUser as AuthUserModel
+from auth_service.core.schemas import AuthUser as AuthUserSchema
 from auth_service.core.security import hash_password
 # from auth_service.core.schemas import AuthUser
 
@@ -58,7 +59,7 @@ async def get_all_users(
 async def get_auth_user(
         user_id: int,
         session: AsyncSession
-):
+) -> AuthUserSchema:
     stmt = select(AuthUserModel).where(AuthUserModel.user_id == user_id)
     result = await session.execute(stmt)
     auth_user = result.scalar_one_or_none()
@@ -79,4 +80,14 @@ async def delete_auth_user(
     except Exception as e:
         await session.rollback()
         print(f"Failed to delete user: {str(e)}")
+
+
+async def update_refresh_token(
+    session: AsyncSession,
+    user: AuthUserModel,
+    new_token: str
+):
+    user.refresh_token = new_token
+    session.add(user)
+    await session.commit()
 
