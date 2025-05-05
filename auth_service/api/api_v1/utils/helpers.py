@@ -25,12 +25,12 @@ def create_jwt(
     )
 
 
-def create_access_token(user: CombinedUserSchema) -> str:
+def create_access_token(user_id, email) -> str:
     jwt_payload = {
         # subject
-        "sub": user.user_id,
-        "user_id": user.user_id,
-        "email": user.email,
+        "sub": user_id,
+        "user_id": user_id,
+        "email": email,
     }
 
     return create_jwt(
@@ -40,10 +40,11 @@ def create_access_token(user: CombinedUserSchema) -> str:
     )
 
 
-def create_refresh_token(user: CombinedUserSchema) -> str:
+def create_refresh_token(user_id, email) -> str:
     jwt_payload = {
-        "sub": user.user_id,
-        "user_id": user.email,
+        # subject
+        "sub": user_id,
+        "user_email": email,
     }
     return create_jwt(
         token_type=REFRESH_TOKEN_TYPE,
