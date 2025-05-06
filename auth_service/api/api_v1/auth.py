@@ -22,6 +22,7 @@ from auth_service.crud.users_crud import (
 from auth_service.api.api_v1.utils.helpers import (
     create_access_token, create_refresh_token
 )
+from auth_service.logger import logger
 
 router = APIRouter(prefix="/auth", tags=["AUTH"])
 
@@ -103,7 +104,7 @@ async def register_user(
     # 3 Сразу логиним пользователя
     refresh_token = create_refresh_token(user_id, email)
     await update_refresh_token(session, new_auth_user, refresh_token)
-    access_token = create_access_token(new_auth_user, email)
+    access_token = create_access_token(user_id, email)
 
     return TokenResponseSchema(
         user_id=user_id,
@@ -168,17 +169,19 @@ async def get_auth_user_username(
         response = await client.get(f"{settings.user_service_url}/api/v1/users/username/{username}")
 
     if response.status_code != 200:
+        logger.error(f"Ошибка при авторизации: пользователь не найден в user_service")
         await redis_client.incr(key)
         await redis_client.expire(key, BLOCK_TIME_SECONDS)
-        raise unauthed_exc  # Пользователь не найден
+        raise unauthed_exc
 
     user_data = response.json()
-    user_id = user_data.get("id")
+    user_id = user_data.get("user_id")
     username = user_data.get("username")
     user_email = user_data.get("email")
     is_active = user_data.get("is_active")
 
     if not user_id or not is_active:
+        logger.error(f"Ошибка при авторизации: user_id = \"{user_id}\", is_active = \"{is_active}\"")
         await redis_client.incr(key)
         await redis_client.expire(key, BLOCK_TIME_SECONDS)
         raise unauthed_exc
@@ -187,12 +190,14 @@ async def get_auth_user_username(
     auth_user: AuthUserModel = await get_auth_user(user_id, session)
 
     if not auth_user:
+        logger.error(f"Ошибка при авторизации: пользователь не найден в auth_service")
         await redis_client.incr(key)
         await redis_client.expire(key, BLOCK_TIME_SECONDS)
         raise unauthed_exc
 
     # secrets
     if not verify_password(credentials.password, auth_user.password):
+        logger.error(f"Ошибка при авторизации: пароли не совпадают")
         await redis_client.incr(key)
         await redis_client.expire(key, BLOCK_TIME_SECONDS)
         raise unauthed_exc
@@ -203,7 +208,7 @@ async def get_auth_user_username(
     refresh_token = create_refresh_token(user_id, user_email)
     await update_refresh_token(session, auth_user, refresh_token)
 
-    access_token = create_access_token(auth_user, user_email)
+    access_token = create_access_token(user_id, user_email)
 
     return TokenResponseSchema(
         user_id=user_id,
