@@ -23,7 +23,7 @@ class CombinedUserSchema(BaseModel):
 
 
 class TokenResponseSchema(BaseModel):
-    user_id: str
+    user_id: int
     username: str
     email: str
     access_token: str
