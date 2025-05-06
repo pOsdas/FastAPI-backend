@@ -14,14 +14,14 @@ class ReadUser(BaseModel):
         from_attributes=True
     )
 
-    id: int
+    user_id: int
     username: str
     email: EmailStr
 
 
 class UserSchema(BaseModel):
     model_config = ConfigDict(strict=True, from_attributes=True)
-    id: int
+    user_id: int
     username: str
     email: EmailStr | None = None
     is_active: bool
