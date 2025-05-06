@@ -6,14 +6,14 @@ from fastapi import (
     status, Header,
 )
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_service.core.models import db_helper
+from auth_service.core.redis_client import redis_client
 from auth_service.core.models.auth_user import AuthUser as AuthUserModel
 from auth_service.core.config import settings
 from auth_service.core.security import verify_password, hash_password
-from auth_service.core.schemas import RegisterUserSchema, CombinedUserSchema, TokenResponseSchema
+from auth_service.core.schemas import RegisterUserSchema, TokenResponseSchema
 from auth_service.core.schemas import AuthUser as AuthUserSchema
 from auth_service.crud.users_crud import (
     static_auth_token_to_user_id, update_refresh_token,
@@ -22,14 +22,12 @@ from auth_service.crud.users_crud import (
 from auth_service.api.api_v1.utils.helpers import (
     create_access_token, create_refresh_token
 )
-from auth_service.logger import logger
+from auth_service.core.logger import logger
 
 router = APIRouter(prefix="/auth", tags=["AUTH"])
 
 security = HTTPBasic()
 
-# Подключение к Redis
-redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 
 # failed attempts
 MAX_ATTEMPTS = 5
@@ -224,6 +222,7 @@ async def get_auth_user_username(
 def basic_auth_username(
         token_data: TokenResponseSchema = Depends(get_auth_user_username)
 ):
+    # Выдаем access_token и refresh_token
     return token_data
 
 
