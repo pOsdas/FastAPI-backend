@@ -6,7 +6,7 @@ from sqlalchemy.orm import (
     declared_attr,
 )
 
-from utils import camel_case_to_snake_case
+from auth_service.utils import camel_case_to_snake_case
 from auth_service.core.config import settings
 
 
