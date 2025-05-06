@@ -147,7 +147,7 @@ async def delete_user_service_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     async with httpx.AsyncClient() as client:
-        response = await client.delete(f"{settings.auth_service_url}/api/v1/auth/{user.id}")
+        response = await client.delete(f"{settings.auth_service_url}/api/v1/auth/{user.user_id}")
 
     # Пользователь не найден
     if response.status_code != 200:
@@ -157,7 +157,7 @@ async def delete_user_service_user(
         )
 
     # Пользователь найден
-    await crud.delete_user(user.id, session)
+    await crud.delete_user(user.user_id, session)
 
     try:
         await session.delete(user)
