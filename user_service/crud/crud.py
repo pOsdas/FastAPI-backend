@@ -17,7 +17,7 @@ from user_service.core.schemas.user import CreateUser
 async def get_all_users(
         session: AsyncSession
 ) -> Sequence[User]:
-    stmt = select(User).order_by(User.id)
+    stmt = select(User).order_by(User.user_id)
     result = await session.scalars(stmt)
     return result.all()
 
@@ -51,7 +51,7 @@ async def delete_user(
         user_id: int,
         session: AsyncSession,
 ):
-    stmt = select(User).where(User.id == user_id)
+    stmt = select(User).where(User.user_id == user_id)
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
 
