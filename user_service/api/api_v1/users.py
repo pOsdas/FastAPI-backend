@@ -26,7 +26,7 @@ router = APIRouter(
 )
 
 
-@router.post("/create_user", response_model=ReadUser)
+@router.post("/create_user/", response_model=ReadUser)
 async def create_user(
         session: Annotated[
             AsyncSession,
@@ -54,7 +54,7 @@ async def create_user(
         return user
 
 
-@router.get("/get_users", response_model=list[ReadUser])
+@router.get("/get_users/", response_model=list[ReadUser])
 async def get_users(
         session: Annotated[
             AsyncSession,
@@ -65,15 +65,21 @@ async def get_users(
     return users
 
 
-@router.get("/{user_id}", response_model=UserSchema)
-async def get_user(user_id: int):
-    user = fake_users_db.get(user_id)
+@router.get("/{user_id}/", response_model=UserSchema)
+async def get_user(
+        user_id: int,
+        session: Annotated[
+            AsyncSession,
+            Depends(db_helper.session_getter),
+        ],
+):
+    user = await crud.get_user(user_id=user_id, session=session)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
 
-@router.get("/username/{username}", response_model=UserSchema)
+@router.get("/username/{username}/", response_model=UserSchema)
 async def get_user_by_username(
         username: str,
         session: Annotated[
@@ -90,7 +96,7 @@ async def get_user_by_username(
     return user
 
 
-@router.patch("/change_user/{user_id}", response_model=UserSchema)
+@router.patch("/change_user/{user_id}/", response_model=UserSchema)
 async def update_user(
         user_id: int,
         data: Annotated[
@@ -133,7 +139,7 @@ async def update_user(
     return user
 
 
-@router.delete("/{user_id}")
+@router.delete("/{user_id}/")
 async def delete_user_service_user(
         user_id: int,
         session: Annotated[
