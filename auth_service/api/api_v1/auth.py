@@ -5,7 +5,10 @@ from fastapi import (
     APIRouter, Depends, HTTPException,
     status, Header,
 )
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import (
+    HTTPBasic, HTTPBasicCredentials,
+    HTTPBearer, HTTPAuthorizationCredentials,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_service.core.models import db_helper
@@ -15,8 +18,10 @@ from auth_service.core.config import settings
 from auth_service.core.security import verify_password, hash_password
 from auth_service.core.schemas import RegisterUserSchema, TokenResponseSchema
 from auth_service.core.schemas import AuthUser as AuthUserSchema
+from auth_service.crud.tokens_crud import (
+    get_username_by_static_auth_token, update_refresh_token,
+)
 from auth_service.crud.users_crud import (
-    static_auth_token_to_user_id, update_refresh_token,
     get_all_users, delete_auth_user, get_auth_user
 )
 from auth_service.api.api_v1.utils.helpers import (
@@ -27,7 +32,7 @@ from auth_service.core.logger import logger
 router = APIRouter(prefix="/auth", tags=["AUTH"])
 
 security = HTTPBasic()
-
+bearer_scheme = HTTPBearer(auto_error=False)
 
 # failed attempts
 MAX_ATTEMPTS = 5
@@ -62,7 +67,7 @@ async def register_user(
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{settings.user_service_url}/api/v1/users/create_user",
+            f"{settings.user_service_url}/api/v1/users/create_user/",
             json={
                 "username": username,
                 "email": email,
@@ -124,17 +129,6 @@ async def get_users(
     return users
 
 
-def get_username_by_static_auth_token(
-        static_token: str = Header(alias="x-auth-token")
-) -> str:
-    if username := static_auth_token_to_user_id.get(static_token):
-        return username
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid token"
-    )
-
-
 # Вспомогательная функция для basic_auth_username
 async def get_auth_user_username(
         session: Annotated[
@@ -164,7 +158,7 @@ async def get_auth_user_username(
 
     # Запрос пользователя из user_service
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{settings.user_service_url}/api/v1/users/username/{username}")
+        response = await client.get(f"{settings.user_service_url}/api/v1/users/username/{username}/")
 
     if response.status_code != 200:
         logger.error(f"Ошибка при авторизации: пользователь не найден в user_service")
@@ -227,9 +221,17 @@ def basic_auth_username(
 
 
 @router.get("/check-token-auth/")
-def check_token_auth(
-        username: str = Depends(get_username_by_static_auth_token)
+async def check_token_auth(
+        credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
 ):
+    if not credentials or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    token = credentials.credentials
+    username = await get_username_by_static_auth_token(token)
     return {
         "message": f"Hi!, {username}!",
         "username": username,
