@@ -71,4 +71,4 @@ async def delete_user(
             detail=f"Failed to delete user: {str(e)}"
         )
 
-    return {"message": "User deleted successfully", "id": id}
+    return {"message": "User deleted successfully", "id": user_id}
