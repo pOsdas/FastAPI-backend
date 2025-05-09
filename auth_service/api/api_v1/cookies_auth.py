@@ -11,6 +11,7 @@ from fastapi import (
 from auth_service.core.redis_client import redis_client
 from auth_service.core.config import settings
 from auth_service.crud.tokens_crud import get_username_by_static_auth_token
+from auth_service.core.logger import logger
 
 router = APIRouter(prefix="/cookies", tags=["COOKIES"])
 
@@ -32,6 +33,7 @@ async def get_session_data(
     return json.loads(data)
 
 
+# Авторизируем пользователя через cookies
 @router.post("/login-cookie/")
 async def login_cookie(
         response: Response,
@@ -57,6 +59,8 @@ async def login_cookie(
         domain=settings.domain,
         max_age=settings.session_ttl_seconds,
     )
+
+    logger.info(f"Cookie created successfully: {session_id}")
     return {"result": "ok"}
 
 
@@ -88,4 +92,6 @@ async def cookie_logout(
 ):
     await redis_client.delete(f"session:{session_id}")
     response.delete_cookie(settings.cookie_session_id_key)
+
+    logger.info(f"Cookie deleted successfully: {session_id}")
     return {"result": "bye"}
