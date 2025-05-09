@@ -1,4 +1,5 @@
 import uuid
+import json
 from time import time
 from typing import Any
 from fastapi import (
@@ -7,52 +8,54 @@ from fastapi import (
     Request,
 )
 
-# will be deleted in the future
-from .auth import get_username_by_static_auth_token
+from auth_service.core.redis_client import redis_client
+from auth_service.core.config import settings
+from auth_service.crud.tokens_crud import get_username_by_static_auth_token
 
 router = APIRouter(prefix="/cookies", tags=["COOKIES"])
-
-# ### for test only never do like this
-
-COOKIES: dict[str, dict[str, Any]] = {}
-COOKIE_SESSION_ID_KEY = "cookie_session_id"
-
-# ###
 
 
 def generate_session_id() -> str:
     return uuid.uuid4().hex
 
 
-def get_session_data(
-        session_id: str = Cookie(alias=COOKIE_SESSION_ID_KEY)
-) -> dict:
-    if session_id not in COOKIES:
+async def get_session_data(
+        session_id: str = Cookie(alias=settings.cookie_session_id_key)
+) -> dict[str, Any]:
+    data = await redis_client.get(f"{settings.session_prefix}{session_id}")
+    if not data:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="not authenticated"
         )
 
-    return COOKIES[session_id]
+    return json.loads(data)
 
 
 @router.post("/login-cookie/")
-def demo_auth_login_cookie(
+async def login_cookie(
         response: Response,
         username: str = Depends(get_username_by_static_auth_token)
-) -> dict:
+) -> dict[str, Any]:
     session_id = generate_session_id()
-    COOKIES[session_id] = {
+    session_data = {
         "username": username,
         "login_at": int(time()),
     }
+    # TTL на ключ
+    await redis_client.setex(
+        f"{settings.session_prefix}{session_id}",
+        settings.session_ttl_seconds,
+        json.dumps(session_data)
+    )
     response.set_cookie(
-        key=COOKIE_SESSION_ID_KEY,
+        key=settings.cookie_session_id_key,
         value=session_id,
-        httponly=True,  # javascript protection
-        secure=False,  # https (set "True" in real projects)
-        samesite="lax",  # CSRF protection
-        domain="127.0.0.1",
+        httponly=settings.httponly,  # javascript protection
+        secure=settings.secure,  # https (set "True" in real projects)
+        samesite=settings.same_site,  # CSRF protection
+        domain=settings.domain,
+        max_age=settings.session_ttl_seconds,
     )
     return {"result": "ok"}
 
@@ -62,33 +65,27 @@ async def get_cookie_session_id(request: Request):
     """
     Вручную получить cookie_session_id (для тестирования в Swagger)
     """
-    session_cookie = request.cookies.get("cookie_session_id")
-    # session_cookie = request.cookies.get("session")
+    session_cookie = request.cookies.get(settings.cookie_session_id_key)
     if not session_cookie:
         return {"error": "Сессионный cookie не найден."}
     return {"session_id": session_cookie}
 
 
 @router.get("/check-cookie/")
-def demo_auth_check_cookie(
+def check_cookie(
         user_session_data: dict = Depends(get_session_data),
 ):
-    username = user_session_data["username"]
     return {
-        "message": f"Hello, {username}",
+        "message": f"Hello, {user_session_data['username']}",
         **user_session_data,
     }
 
 
 @router.get("/logout-cookie/")
-def demo_auth_cookie_logout(
+async def cookie_logout(
         response: Response,
-        session_id: str = Cookie(alias=COOKIE_SESSION_ID_KEY),
-        user_session_data: dict = Depends(get_session_data)
+        session_id: str = Cookie(alias=settings.cookie_session_id_key),
 ):
-    COOKIES.pop(session_id)
-    response.delete_cookie(COOKIE_SESSION_ID_KEY)
-    username = user_session_data["username"]
-    return {
-        "message": f"Bye, {username}",
-    }
+    await redis_client.delete(f"session:{session_id}")
+    response.delete_cookie(settings.cookie_session_id_key)
+    return {"result": "bye"}
