@@ -22,7 +22,8 @@ from auth_service.crud.tokens_crud import (
     get_username_by_static_auth_token, update_refresh_token,
 )
 from auth_service.crud.users_crud import (
-    get_all_users, delete_auth_user, get_auth_user
+    get_all_users, delete_auth_user, get_auth_user,
+    create_user_service_user,
 )
 from auth_service.api.api_v1.utils.helpers import (
     create_access_token, create_refresh_token
@@ -65,17 +66,10 @@ async def register_user(
     username = user_data.username
     email = user_data.email
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{settings.user_service_url}/api/v1/users/create_user/",
-            json={
-                "username": username,
-                "email": email,
-            }
-        )
+    response = await create_user_service_user(username, email)
 
     if response.status_code not in (200, 201):
-        print(f"response.status_code: {response.status_code}")
+        logger.error(f"response.status_code: {response.status_code}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create user profile in user_service",
@@ -84,6 +78,7 @@ async def register_user(
     user_profile = response.json()
     user_id = user_profile.get("user_id")
     if not user_id:
+        logger.error("User profile creation error: no user_id returned")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="User profile creation error: no user_id returned"
@@ -109,6 +104,7 @@ async def register_user(
     await update_refresh_token(session, new_auth_user, refresh_token)
     access_token = create_access_token(user_id, email)
 
+    logger.info(f"User created successfully")
     return TokenResponseSchema(
         user_id=user_id,
         username=username,
@@ -217,6 +213,7 @@ def basic_auth_username(
         token_data: TokenResponseSchema = Depends(get_auth_user_username)
 ):
     # Выдаем access_token и refresh_token
+    logger.info(f"Auth via user/password - successfully")
     return token_data
 
 
