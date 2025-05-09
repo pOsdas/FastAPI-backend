@@ -58,11 +58,25 @@ class Settings(BaseSettings):
         env_nested_delimiter="__",
         env_prefix="AUTH_SERVICE__"
     )
+    # Goggle
     google_client_id: str
     google_client_secret: str
     oauth_redirect_uri: str
+
+    # Other
     secret_key: str
     user_service_url: str
+
+    # Cookie
+    session_ttl_seconds: str
+    session_prefix: str
+    cookie_session_id_key: str
+
+    # Cookie secure params
+    httponly: bool = True
+    secure: bool = True
+    same_site: str = "lax"
+    domain: str
 
     run: RunModel = RunModel()
     api: ApiPrefix = ApiPrefix()
