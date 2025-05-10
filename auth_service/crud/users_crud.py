@@ -5,11 +5,14 @@ update
 delete
 """
 import httpx
-import json
 from typing import Sequence
 from sqlalchemy import select
+from functools import wraps
+from typing import Callable, Coroutine, Any
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException, status
 
+from auth_service.core.logger import logger
 from auth_service.core.config import settings
 from auth_service.core.models import AuthUser as AuthUserModel
 from auth_service.core.schemas import AuthUser as AuthUserSchema
@@ -36,6 +39,58 @@ async def get_auth_user(
 
 # --- with request to user_service ---
 
+def handle_user_service_errors(
+        detail_prefix: str = "",
+        success_status: int = 200
+):
+    def decorator(func: Callable[..., Coroutine[Any, Any, httpx.Response]]):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            try:
+                response = await func(*args, **kwargs)
+                if response.status_code != success_status:
+                    response.raise_for_status()
+                return response
+
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"{detail_prefix}Not found"
+                    )
+                elif e.response.status_code == 400:
+                    error_detail = e.response.json().get("detail", "Bad request")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"{detail_prefix}{error_detail}"
+                    )
+                else:
+                    logger.error(f"User service error: {e.response.status_code}")
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail=f"{detail_prefix}External service error"
+                    )
+
+            except httpx.RequestError as e:
+                logger.error(f"Connection error: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"{detail_prefix}Service unavailable"
+                )
+
+            except Exception as e:
+                logger.critical(f"Unexpected error: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"{detail_prefix}Internal error"
+                )
+
+        return wrapper
+
+    return decorator
+
+
+@handle_user_service_errors(detail_prefix="By ID: ")
 async def get_user_service_user_by_id(user_id: int):
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(
@@ -43,9 +98,10 @@ async def get_user_service_user_by_id(user_id: int):
         )
         response.raise_for_status()
 
-    return response.json()
+    return response
 
 
+@handle_user_service_errors(detail_prefix="By username: ")
 async def get_user_service_user_by_username(username: str):
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(
@@ -53,9 +109,10 @@ async def get_user_service_user_by_username(username: str):
         )
         response.raise_for_status()
 
-    return response.json()
+    return response
 
 
+@handle_user_service_errors(detail_prefix="User creation: ", success_status=201)
 async def create_user_service_user(username, email):
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.post(
@@ -67,7 +124,7 @@ async def create_user_service_user(username, email):
         )
         response.raise_for_status()
 
-    return response.json()
+    return response
 
 # ------------------------------------
 
