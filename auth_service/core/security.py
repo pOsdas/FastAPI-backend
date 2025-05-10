@@ -1,6 +1,14 @@
 import jwt
+from jwt import (
+    ExpiredSignatureError,
+    InvalidSignatureError,
+    InvalidTokenError,
+    PyJWTError,
+)
 import bcrypt
 from datetime import datetime, timezone, timedelta
+
+from fastapi import HTTPException, status
 from passlib.context import CryptContext
 
 from .config import settings
@@ -39,7 +47,30 @@ def decode_jwt(
         public_key: str = settings.auth_jwt.public_key_path.read_text(),
         algorithm: str = settings.auth_jwt.algorithm,
 ):
-    decoded = jwt.decode(token, public_key, algorithms=[algorithm])
+    try:
+        decoded = jwt.decode(
+            token,
+            public_key,
+            algorithms=[algorithm],
+            options={"verify_exp": True},
+        )
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired",
+        )
+
+    except (InvalidSignatureError, InvalidTokenError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {str(e)}",
+        )
+    except PyJWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Token validation failed: {str(e)}",
+        )
+
     return decoded
 
 
