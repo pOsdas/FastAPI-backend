@@ -1,8 +1,10 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from auth_service.crud.users_crud import get_user_service_user_by_id
 from auth_service.core.models import AuthUser as AuthUserModel
+from auth_service.core.models import RevokedToken
 from auth_service.core.security import decode_jwt
 
 
@@ -45,6 +47,20 @@ async def update_refresh_token(
     user: AuthUserModel,
     new_token: str
 ):
+    # Добавляем старый токен в чс
+    old_refresh_token = user.refresh_token
+    revoked_token = RevokedToken(token=old_refresh_token)
+    session.add(revoked_token)
+    try:
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update refresh token"
+        )
+
+    # Сохраняем новый токен
     user.refresh_token = new_token
     session.add(user)
     try:
@@ -54,4 +70,15 @@ async def update_refresh_token(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update refresh token"
+        )
+
+
+async def validate_refresh_token(token: str, session: AsyncSession):
+    # Проверяем, не отозван ли токен
+    stmt = select(RevokedToken).where(RevokedToken.token == token)
+    result = await session.execute(stmt)
+    if result.scalar():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token revoked"
         )
