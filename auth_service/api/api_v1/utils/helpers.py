@@ -2,7 +2,6 @@ from datetime import timedelta
 
 from auth_service.core import security as auth_utils
 from auth_service.core.config import settings
-from auth_service.core.schemas import AuthUser as AuthUserSchema, CombinedUserSchema
 
 
 TOKEN_TYPE_FIELD = "type"
