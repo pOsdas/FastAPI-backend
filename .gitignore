@@ -165,3 +165,4 @@ idea/
 /auth_service/.env
 /auth_service/certs/
 .env
+TODO.MD
