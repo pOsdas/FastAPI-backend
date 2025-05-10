@@ -30,7 +30,7 @@ def create_access_token(user_id, email) -> str:
         # subject
         "sub": str(user_id),
         "user_id": user_id,
-        "email": email,
+        "user_email": email,
     }
 
     return create_jwt(
