@@ -6,7 +6,7 @@ from fastapi import (
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.security import (
-    HTTPBearer
+    OAuth2PasswordBearer, OAuth2PasswordRequestForm
 )
 from pydantic import BaseModel
 from typing import Annotated
@@ -24,11 +24,12 @@ from auth_service.core.schemas import (
     CombinedUserSchema
 )
 from auth_service.core import security
+from auth_service.core.logger import logger
 from auth_service.core.models import db_helper
-from auth_service.core.config import settings
 from auth_service.core.models import AuthUser as AuthUserModel
+from auth_service.crud.users_crud import get_user_service_user_by_username
 
-http_bearer = HTTPBearer(auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/jwt/login/")
 
 
 class TokenInfo(BaseModel):
@@ -40,34 +41,32 @@ class TokenInfo(BaseModel):
 router = APIRouter(
     prefix="/jwt",
     tags=["JWT"],
-    dependencies=[Depends(http_bearer)]
+    # dependencies=[Depends(oauth2_scheme)]
 )
 
 
 async def validate_auth_user(
         session: Annotated[
-                    AsyncSession,
-                    Depends(db_helper.session_getter)
-                ],
-        username: str = Form(...),
-        password: str = Form(...),
+            AsyncSession,
+            Depends(db_helper.session_getter)
+        ],
+        username: str,
+        password: str,
 ):
+    logger.info(f"Received data: {username}, {password}")
     unauthed_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid username or password"
     )
 
     # Запрос на поиск
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{settings.user_service_url}/api/v1/users/username/{username}",
-        )
-
-    if response.status_code != status.HTTP_200_OK:
-        raise unauthed_exc
+    try:
+        response = await get_user_service_user_by_username(username=username)
+    except Exception as e:
+        raise e
 
     user_profile = response.json()
-    user_id = user_profile.get("id")
+    user_id = user_profile.get("user_id")
     active_status = user_profile.get("is_active")
 
     # Активный ли пользователь
@@ -98,23 +97,29 @@ async def validate_auth_user(
     return combined_data
 
 
-# def get_current_active_auth_user(
-#         user: AuthUserModel = Depends(get_current_auth_user),
-# ):
-#     if user.active:
-#         return user
-#     raise HTTPException(
-#         status_code=status.HTTP_403_FORBIDDEN,
-#         detail="Inactive user"
-#     )
-
-
+# login via jwt
 @router.post("/login/", response_model=TokenInfo)
-def auth_user_issue_jwt(
-        user: CombinedUserSchema = Depends(validate_auth_user)
+async def auth_user_issue_jwt(
+        form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+        session: AsyncSession = Depends(db_helper.session_getter),
 ):
-    access_token = create_access_token(user)
-    refresh_token = create_refresh_token(user)
+    """
+    Допустим что при регистрации не выдаются токены
+    """
+    try:
+        user = await validate_auth_user(
+            session=session,
+            username=form_data.username,
+            password=form_data.password
+        )
+    except HTTPException as e:
+        logger.error("Authentication failed: %s", e.detail)
+        raise
+
+    access_token = create_access_token(user.user_id, user.email)
+    refresh_token = create_refresh_token(user.user_id, user.email)
+
+    logger.info("Successfully created tokens for user %s", user.user_id)
     return TokenInfo(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -130,7 +135,16 @@ def auth_user_issue_jwt(
 def auth_refresh_jwt(
         user: CombinedUserSchema = Depends(get_auth_user_from_token_of_type(REFRESH_TOKEN_TYPE))
 ):
-    access_token = create_access_token(user)
+    # Инвалидируем старый токен
+    # await revoke_refresh_token(old_token)
+
+    # Генерируем новые токены
+    access_token = create_access_token(user.user_id, user.email)
+    refresh_token = create_refresh_token(user.user_id, user.email)
+
+    logger.info("Successfully refreshed tokens for user %s", user.user_id)
     return TokenInfo(
         access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="Bearer"
     )
