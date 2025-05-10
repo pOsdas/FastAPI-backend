@@ -1,10 +1,9 @@
-import httpx
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from auth_service.crud.users_crud import get_user_service_user_by_id
 from auth_service.core.models import AuthUser as AuthUserModel
 from auth_service.core.security import decode_jwt
-from auth_service.core.config import settings
 
 
 # ---- tokens ----
@@ -27,28 +26,9 @@ async def get_username_by_static_auth_token(token) -> str:
 
     # Запрос к user_service
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{settings.user_service_url}/api/v1/users/{user_id}/"
-            )
-            response.raise_for_status()
-
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 404:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="User service error"
-        )
-
-    except httpx.RequestError:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Cannot reach user service"
-        )
+        response = await get_user_service_user_by_id(user_id=user_id)
+    except Exception as e:
+        raise e
 
     data = response.json()
     username = data.get("username")

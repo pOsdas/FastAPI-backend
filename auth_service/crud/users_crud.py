@@ -131,7 +131,11 @@ async def create_user_service_user(username, email):
 
 async def delete_auth_user_redis_data(user) -> None:
     user_id = user.user_id
-    user_data = await get_user_service_user_by_id(user_id)
+    try:
+        response = await get_user_service_user_by_id(user_id)
+    except Exception as e:
+        raise e
+    user_data = response.json()
     username = user_data.get("username")
 
     # Удаляем счетчик неудачных попыток
