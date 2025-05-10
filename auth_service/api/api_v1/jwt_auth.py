@@ -1,7 +1,6 @@
-import httpx
 from fastapi import (
-    APIRouter, Depends, Form,
-    HTTPException, status
+    APIRouter, Depends,
+    HTTPException, status,
 )
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
