@@ -26,7 +26,11 @@ from auth_service.core import security
 from auth_service.core.logger import logger
 from auth_service.core.models import db_helper
 from auth_service.core.models import AuthUser as AuthUserModel
-from auth_service.crud.users_crud import get_user_service_user_by_username
+from auth_service.crud.users_crud import (
+    get_user_service_user_by_username,
+    get_user_service_user_by_id,
+)
+from auth_service.crud.tokens_crud import update_refresh_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/jwt/login/")
 
@@ -115,10 +119,17 @@ async def auth_user_issue_jwt(
         logger.error("Authentication failed: %s", e.detail)
         raise
 
-    access_token = create_access_token(user.user_id, user.email)
-    refresh_token = create_refresh_token(user.user_id, user.email)
+    # Генерируем новые токены
+    user_id = user.user_id
+    auth_user = await get_user_service_user_by_id(user_id)
 
-    logger.info("Successfully created tokens for user %s", user.user_id)
+    access_token = create_access_token(user_id, user.email)
+    refresh_token = create_refresh_token(user_id, user.email)
+
+    # Инвалидируем старый токен
+    await update_refresh_token(session, auth_user, refresh_token)
+
+    logger.info("Successfully created tokens for user %s", user_id)
     return TokenInfo(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -131,15 +142,19 @@ async def auth_user_issue_jwt(
     response_model=TokenInfo,
     response_model_exclude_none=True,
 )
-def auth_refresh_jwt(
-        user: CombinedUserSchema = Depends(get_auth_user_from_token_of_type(REFRESH_TOKEN_TYPE))
+async def auth_refresh_jwt(
+        user: CombinedUserSchema = Depends(get_auth_user_from_token_of_type(REFRESH_TOKEN_TYPE)),
+        session: AsyncSession = Depends(db_helper.session_getter),
 ):
-    # Инвалидируем старый токен
-    # await revoke_refresh_token(old_token)
-
     # Генерируем новые токены
-    access_token = create_access_token(user.user_id, user.email)
-    refresh_token = create_refresh_token(user.user_id, user.email)
+    user_id = user.user_id
+    auth_user = await get_user_service_user_by_id(user_id)
+
+    access_token = create_access_token(user_id, user.email)
+    refresh_token = create_refresh_token(user_id, user.email)
+
+    # Инвалидируем старый токен
+    await update_refresh_token(session, auth_user, refresh_token)
 
     logger.info("Successfully refreshed tokens for user %s", user.user_id)
     return TokenInfo(

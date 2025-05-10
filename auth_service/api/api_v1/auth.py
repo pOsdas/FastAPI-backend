@@ -95,9 +95,8 @@ async def register_user(
         await session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-    # 3 Сразу логиним пользователя
+    # 3 Генерируем новые токены
     refresh_token = create_refresh_token(user_id, email)
-    await update_refresh_token(session, new_auth_user, refresh_token)
     access_token = create_access_token(user_id, email)
 
     logger.info(f"User created successfully")
@@ -188,11 +187,12 @@ async def get_auth_user_username(
 
     await redis_client.delete(key)
 
-    # Создаем токены
+    # Генерируем новые токены
     refresh_token = create_refresh_token(user_id, user_email)
-    await update_refresh_token(session, auth_user, refresh_token)
-
     access_token = create_access_token(user_id, user_email)
+
+    # Инвалидируем старый токен
+    await update_refresh_token(session, auth_user, refresh_token)
 
     return TokenResponseSchema(
         user_id=user_id,
