@@ -66,14 +66,10 @@ async def register_user(
     username = user_data.username
     email = user_data.email
 
-    response = await create_user_service_user(username, email)
-
-    if response.status_code not in (200, 201):
-        logger.error(f"response.status_code: {response.status_code}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create user profile in user_service",
-        )
+    try:
+        response = await create_user_service_user(username, email)
+    except Exception as e:
+        raise e
 
     user_profile = response.json()
     user_id = user_profile.get("user_id")
@@ -228,7 +224,10 @@ async def check_token_auth(
             headers={"WWW-Authenticate": "Bearer"}
         )
     token = credentials.credentials
-    username = await get_username_by_static_auth_token(token)
+    try:
+        username = await get_username_by_static_auth_token(token)
+    except Exception as e:
+        raise e
     return {
         "message": f"Hi!, {username}!",
         "username": username,
