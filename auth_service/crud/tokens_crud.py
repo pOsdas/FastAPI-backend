@@ -1,3 +1,4 @@
+from typing import Sequence
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -74,3 +75,11 @@ async def validate_refresh_token(token: str, session: AsyncSession):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token revoked"
         )
+
+
+async def print_all_revoked_tokens(
+        session: AsyncSession
+) -> Sequence[RevokedToken]:
+    stmt = select(RevokedToken).order_by(RevokedToken.id)
+    result = await session.scalars(stmt)
+    return result.all()
