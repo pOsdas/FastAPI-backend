@@ -5,7 +5,7 @@ from auth_service.core.config import settings
 from .auth import router as auth_router
 from .jwt_auth import router as jwt_router
 from .oauth import oauth_router
-from .test import router as test_router
+from .debug import router as debug_router
 from .cookies_auth import router as cookies_router
 
 api_v1_router = APIRouter(
@@ -33,7 +33,7 @@ api_v1_router.include_router(
 )
 
 api_v1_router.include_router(
-    test_router
-    # prefix=settings.test_router,
+    debug_router
+    # prefix=settings.debug_router,
 )
 
