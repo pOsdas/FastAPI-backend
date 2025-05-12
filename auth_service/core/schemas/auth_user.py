@@ -28,3 +28,8 @@ class TokenResponseSchema(BaseModel):
     email: str
     access_token: str
     refresh_token: str
+
+
+class RevokeTokenResponseSchema(BaseModel):
+    id: int
+    token: str
