@@ -29,6 +29,7 @@ from auth_service.core.models import AuthUser as AuthUserModel
 from auth_service.crud.users_crud import (
     get_user_service_user_by_username,
     get_user_service_user_by_id,
+    get_auth_user,
 )
 from auth_service.crud.tokens_crud import update_refresh_token
 
@@ -148,7 +149,7 @@ async def auth_refresh_jwt(
 ):
     # Генерируем новые токены
     user_id = user.user_id
-    auth_user = await get_user_service_user_by_id(user_id)
+    auth_user: AuthUserModel = await get_auth_user(user_id, session)
 
     access_token = create_access_token(user_id, user.email)
     refresh_token = create_refresh_token(user_id, user.email)
