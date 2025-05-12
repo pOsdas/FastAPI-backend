@@ -6,6 +6,7 @@ from auth_service.crud.users_crud import get_user_service_user_by_id
 from auth_service.core.models import AuthUser as AuthUserModel
 from auth_service.core.models import RevokedToken
 from auth_service.core.security import decode_jwt
+from auth_service.core.logger import logger
 
 
 # ---- tokens ----
@@ -47,25 +48,16 @@ async def update_refresh_token(
     user: AuthUserModel,
     new_token: str
 ):
-    # Добавляем старый токен в чс
-    old_refresh_token = user.refresh_token
-    revoked_token = RevokedToken(token=old_refresh_token)
-    session.add(revoked_token)
-    try:
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update refresh token"
-        )
+    # Добавляем старый токен в чс если он есть
+    if user.refresh_token is not None:
+        session.add(RevokedToken(token=user.refresh_token))
 
     # Сохраняем новый токен
     user.refresh_token = new_token
-    session.add(user)
     try:
         await session.commit()
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error while updating refresh token: {e}")
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
