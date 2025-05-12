@@ -99,6 +99,9 @@ async def register_user(
     refresh_token = create_refresh_token(user_id, email)
     access_token = create_access_token(user_id, email)
 
+    # 4 Инвалидируем старый токен и прикрепляем новый
+    await update_refresh_token(session, new_auth_user, refresh_token)
+
     logger.info(f"User created successfully")
     return TokenResponseSchema(
         user_id=user_id,
@@ -191,7 +194,7 @@ async def get_auth_user_username(
     refresh_token = create_refresh_token(user_id, user_email)
     access_token = create_access_token(user_id, user_email)
 
-    # Инвалидируем старый токен
+    # Инвалидируем старый токен и прикрепляем новый
     await update_refresh_token(session, auth_user, refresh_token)
 
     return TokenResponseSchema(
